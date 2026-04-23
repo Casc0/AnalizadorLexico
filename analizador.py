@@ -24,7 +24,7 @@ def recognize_lexeme(char: str, file) -> int:
 			error = caseNUM(char, file)
 		case "LLAVE_ABRE":
 			error = comentario(file)
-		case "IGNORE": #ignore whitespace
+		case "IGNORE": 
 			return 0
 		case "LINE_BREAK":
 			line_number += 1
@@ -39,11 +39,9 @@ def comentario(file) -> int:
 		token = tokens.get(char) 
 		if char == 'LLAVE_CIERRA':
 			return 0
-		case "ID":
-			continue
 		case "LINE_BREAK":
 			line_number += 1
-			return 0	
+			return error("COMMENT_ERROR")	
 		case _:
 			continue
 			
@@ -181,7 +179,6 @@ letter = {
 	"y" : 'y',
 	"z" : 'z'
 }
-
 digit = {
 	"0" : '0',
 	"1" : '1',
@@ -200,7 +197,8 @@ tokens.update({digit: 'NUM' for digit in digit})
 
 errors = {
 	"ID_ERROR" : "Lexema no reconocido. Se esperaba un ID o un NUM.",
-	"NUM_ERROR" : "Lexema no reconocido. Se esperaba un NUM."
+	"NUM_ERROR" : "Lexema no reconocido. Se esperaba un NUM.",
+	"COMMENT_ERROR" : "Comentario no cerrado. Se esperaba una llave de cierre."
 }
 
 
