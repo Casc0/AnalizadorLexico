@@ -11,7 +11,6 @@ class SymbolTable:
         self.pointer_counter = 1
 
     def get_or_add(self, lexeme):
-        # Retorna un "puntero" simulado (un entero) a la tabla de símbolos
         if lexeme not in self.table:
             self.table[lexeme] = self.pointer_counter
             self.pointer_counter += 1
@@ -44,7 +43,7 @@ class AnalizadorLexico:
         """Avanza un carácter en el archivo."""
         self.current_char = self.file.read(1)
 	
-	def get_next_token(self):
+	def get_next_token(self) -> Token:
 		while self.current_char:
 			match self.current_char:
 				case ' ' | '\t':
@@ -71,10 +70,12 @@ class AnalizadorLexico:
 				
 				case ':':
                     self.next_char()
-                    if self.current_char == '=':
+                    if self.current_char != '=':
                         self.next_char()
                         return Token('OP_ASIG', ':=', self.line_number)
+                    # Si no es ':=', es un error, corregimos el error y seguimos adelante    
                     print_error(self.errors["ASIGN"])
+                    return Token('OP_ASIG', ':=', self.line_number)
 
 				case '<':
                     self.next_char()
@@ -172,8 +173,13 @@ class AnalizadorLexico:
             lexema += self.current_char
             self.next_char()
 
+        # Si hay dígitos mezclados con letras, es un error de número mal formado
 		if self.current_char and self.current_char.isalpha():
 			self.print_error(self.errors["NUM_ERROR"])
+            while self.current_char and self.current_char.isalnum():
+                lexema += self.current_char
+                self.next_char()
+                return Token('ERROR', lexema, self.line_number)
         return Token('NUM', lexema, self.line_number)
 
 	def print_error(self, msg):
@@ -189,11 +195,15 @@ if __name__ == "__main__":
     
     with open("resultado_tokens.txt", "w") as output_file:
         token = lex.get_next_token()
+        line = token.line_number
         while token:
-            if token.name != "ERROR":
-                # Escribimos en el archivo y también imprimimos en consola
-                output_file.write(str(token) + "\n")
+            
+            if token.line_number != line:
+                output_file.write("\n")
+
+            output_file.write(str(token) + " ")
             token = lex.get_next_token()
+            line = token.line_number
             
     print("\n¡Análisis finalizado! Resultados guardados en 'resultado_tokens.txt'")
 
