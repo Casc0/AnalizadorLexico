@@ -2,12 +2,15 @@ from unittest import case
 
 
 FILE = "input.txt"
+global line_number
+line_number = 1
 
 def main() -> None:
 	with open(FILE, 'r') as file:
-		while True:
+		valid = True
+		while valid:
 			char = file.read(1)
-			recognize_lexeme(char, file)
+			valid = recognize_lexeme(char, file) == 0
 
 			
 	
@@ -20,19 +23,31 @@ def recognize_lexeme(char: str, file) -> int:
 		case "NUM":
 			error = caseNUM(char, file)
 		case "LLAVE_ABRE":
-			comentario(file)
+			error = comentario(file)
 		case "IGNORE": #ignore whitespace
 			return 0
+		case "LINE_BREAK":
+			line_number += 1
+			return 0
+	return error
 
 
-def comentario(file) -> None:
+def comentario(file) -> int:
 	#hacer error!!!!
 	while True:
 		char = file.read(1)
+		token = tokens.get(char) 
 		if char == 'LLAVE_CIERRA':
 			return 0
+		case "ID":
+			continue
+		case "LINE_BREAK":
+			line_number += 1
+			return 0	
+		case _:
+			continue
 			
-def caseID(file) -> None:
+def caseID(file) -> int:
 	#hacer error!!!!
 	while True:
 		char = file.read(1)
@@ -42,10 +57,15 @@ def caseID(file) -> None:
 				continue
 			case "NUM":
 				continue
+			case "IGNORE":
+				return 0
+			case "LINE_BREAK":
+				line_number += 1
+				return 0
 			case _:
-				return errors.get("ID_ERROR")
+				return error("ID_ERROR")
 			
-def caseNUM(file) -> None:
+def caseNUM(file) -> int:
 	#hacer error!!!!
 	while True:
 		char = file.read(1)
@@ -54,9 +74,11 @@ def caseNUM(file) -> None:
 			case "NUM":
 				continue
 			case _:
-				return errors.get("NUM_ERROR")
+				return error("NUM_ERROR")
             
-
+def error(er: str) -> int:
+	print("Error in line " + str(line_number) + ": " + errors.get(er))
+	return 1
 
 tokens ={
 	"(" : 'PAR_ABRE',
@@ -79,7 +101,7 @@ tokens ={
 	">=" : 'OP_REL_GTE',
 	" " : 'IGNORE',
 	"\t" : 'IGNORE',
-	"\n" : 'IGNORE'
+	"\n" : 'LINE_BREAK'
 }
 
 keyword = {
@@ -177,8 +199,8 @@ tokens.update({letter: 'ID' for letter in letter})
 tokens.update({digit: 'NUM' for digit in digit})
 
 errors = {
-	"ID_ERROR" : "Error: Lexema no reconocido. Se esperaba un ID o un NUM.",
-	"NUM_ERROR" : "Error: Lexema no reconocido. Se esperaba un NUM."
+	"ID_ERROR" : "Lexema no reconocido. Se esperaba un ID o un NUM.",
+	"NUM_ERROR" : "Lexema no reconocido. Se esperaba un NUM."
 }
 
 
