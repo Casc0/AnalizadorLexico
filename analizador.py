@@ -1,205 +1,207 @@
-from unittest import case
+class Token:
+    """Token que le enviaremos al Parser."""
+    def __init__(self, name,  value, line_number):
+        self.name = name
+        self.value = value
+        self.line_number = line_number
 
+class SymbolTable:
+	def __init__(self):
+		self.table = {}
+        self.pointer_counter = 1
 
-FILE = "input.txt"
-global line_number
-line_number = 1
+    def get_or_add(self, lexeme):
+        # Retorna un "puntero" simulado (un entero) a la tabla de símbolos
+        if lexeme not in self.table:
+            self.table[lexeme] = self.pointer_counter
+            self.pointer_counter += 1
+        return self.table[lexeme]
 
-def main() -> None:
-	with open(FILE, 'r') as file:
-		valid = True
-		while valid:
-			char = file.read(1)
-			valid = recognize_lexeme(char, file) == 0
+class AnalizadorLexico:
+    def __init__(self, archivo):
+        self.file = open(archivo, 'r')
+        self.line_number = 1
+        self.char_actual = self.file.read(1) # Leemos el primer carácter al arrancar
+		self.symbol_table = SymbolTable()
 
-			
+		self.keywords = {
+            "program": 'PROGRAM', "var": 'VAR', "integer": 'INTEGER',
+            "boolean": 'BOOLEAN', "function": 'FUNCTION', "procedure": 'PROCEDURE',
+            "begin": 'BEGIN', "end": 'END', "if": 'IF', "then": 'THEN',
+            "else": 'ELSE', "while": 'WHILE', "do": 'DO', "read": 'READ',
+            "write": 'WRITE', "true": 'TRUE', "false": 'FALSE',
+            "or": 'OR', "and": 'AND', "not": 'NOT'
+        }
+		
+		self.errors = {
+			"COMMENT" : "Comentario no cerrado. Se esperaba una llave de cierre.",
+			"UNRECOGNIZED_CHAR" : "Carácter no reconocido.",
+			"ASIGN" : "Se esperaba un '=' después de ':'.",
+			"NUM_ERROR" : "Número mal formado. No se permiten letras después de dígitos."
+		}
+
+	def next_char(self):
+        """Avanza un carácter en el archivo."""
+        self.current_char = self.file.read(1)
 	
-def recognize_lexeme(char: str, file) -> int:
-	token = tokens.get(char)
-	
-	match token:
-		case "ID":
-			error = caseID(char, file)
-		case "NUM":
-			error = caseNUM(char, file)
-		case "LLAVE_ABRE":
-			error = comentario(file)
-		case "IGNORE": 
-			return 0
-		case "LINE_BREAK":
-			line_number += 1
-			return 0
-	return error
+	def get_next_token(self):
+		while self.current_char:
+			match self.current_char:
+				case ' ' | '\t':
+                    self.next_char()
+                    continue
+
+				case '\n':
+                    self.line_number += 1
+                    self.next_char()
+                    continue
+
+				case '{':
+                    self.next_char()
+					token = self.recognize_comment()
+					if token:
+						return token
+					continue 
+                
+				case c if c.isalpha():
+                    return self.recognize_id_or_keyword()
+
+				case c if c.isdigit():
+                	return self.recognize_number()
+				
+				case ':':
+                    self.next_char()
+                    if self.current_char == '=':
+                        self.next_char()
+                        return Token('OP_ASIG', ':=', self.line_number)
+                    print_error(self.errors["ASIGN"])
+
+				case '<':
+                    self.next_char()
+                    if self.current_char == '>':
+                        self.next_char()
+                        return Token('OP_REL', 'NE', self.line_number)
+                    elif self.current_char == '=':
+                        self.next_char()
+                        return Token('OP_REL', 'LE', self.line_number)
+                    return Token('OP_REL', 'LT', self.line_number)
+
+                case '>':
+                    self.next_char()
+                    if self.current_char == '=':
+                        self.next_char()
+                        return Token('OP_REL', 'GE', self.line_number)
+                    return Token('OP_REL', 'GT', self.line_number)
+
+				case '=':
+                    self.next_char()
+                    return Token('OP_REL', 'EQ', self.line_number)
+
+				case '+':
+                    self.next_char()
+                    return Token('OP_ARIT', 'ADD', self.line_number)
+
+                case '-':
+                    self.next_char()
+                    return Token('OP_ARIT', 'SUB', self.line_number)
+
+                case '*':
+                    self.next_char()
+                    return Token('OP_ARIT', 'MUL', self.line_number)
+
+				case '/':
+                    self.next_char()
+                    return Token('OP_ARIT', 'DIV', self.line_number)
+
+				case '(':
+                    self.next_char()
+                    return Token('PAR_ABRE', '', self.line_number)
+
+                case ')':
+                    self.next_char()
+                    return Token('PAR_CIERRA', '', self.line_number)
+
+                case ',':
+                    self.next_char()
+                    return Token('COMA', '', self.line_number)
+
+                case '.':
+                    self.next_char()
+                    return Token('PUNTO', '', self.line_number)
+
+                case ';':
+                    self.next_char()
+                    return Token('PUNTO_COMA', '', self.line_number)
+
+				case _:
+                    self.print_error(self.errors["UNRECOGNIZED_CHAR"])
+                    self.next_char() # Avanzar para no generar un bucle infinito
+				
+	def recognize_comment(self):
+		while self.current_char and self.current_char != '}':
+            if self.current_char == '\n':
+                self.line_number += 1
+            self.next_char()
+						
+		if self.current_char == '}':
+            self.next_char()
+            return 1
+        else:
+            self.print_error(self.errors["COMMENT"])
+            return 0
 
 
-def comentario(file) -> int:
-	#hacer error!!!!
-	while True:
-		char = file.read(1)
-		token = tokens.get(char) 
-		if char == 'LLAVE_CIERRA':
-			return 0
-		case "LINE_BREAK":
-			line_number += 1
-			return error("COMMENT_ERROR")	
-		case _:
-			continue
+	def recognize_id_or_keyword(self) -> int:
+		lexeme = ""
+		while self.current_char and self.current_char.isalnum():
+            lexeme += self.current_char
+            self.next_char()
+
+		lexeme = lexeme.lower()
+
+		name = self.keywords.get(lexeme, 'ID')
+		if name == 'ID':
+			return Token(name, self.symbol_table.get_or_add(lexeme), self.line_number)
+		else:
+			return Token(name, "", self.line_number)
 			
-def caseID(file) -> int:
-	#hacer error!!!!
-	while True:
-		char = file.read(1)
-		token = tokens.get(char)
-		match token:
-			case "ID":
-				continue
-			case "NUM":
-				continue
-			case "IGNORE":
-				return 0
-			case "LINE_BREAK":
-				line_number += 1
-				return 0
-			case _:
-				return error("ID_ERROR")
-			
-def caseNUM(file) -> int:
-	#hacer error!!!!
-	while True:
-		char = file.read(1)
-		token = tokens.get(char)
-		match token:
-			case "NUM":
-				continue
-			case _:
-				return error("NUM_ERROR")
+
+	def recognize_number(self) -> int:
+		lexema = ""
+        while self.current_char and self.current_char.isdigit():
+            lexema += self.current_char
+            self.next_char()
+
+		if self.current_char and self.current_char.isalpha():
+			self.print_error(self.errors["NUM_ERROR"])
+        return Token('NUM', lexema, self.line_number)
+
+	def print_error(self, msg):
+        print(f"Error Léxico en línea {self.line_number}: {msg}")
+
+if __name__ == "__main__":
+    if len(sys.argv) != 2:
+        print("Faltan argumentos.")
+        sys.exit(1)
+        
+    input_file = sys.argv[1]
+    lex = LexicAnalyzer(input_file)
+    
+    with open("resultado_tokens.txt", "w") as output_file:
+        token = lex.get_next_token()
+        while token:
+            if token.name != "ERROR":
+                # Escribimos en el archivo y también imprimimos en consola
+                output_file.write(str(token) + "\n")
+            token = lex.get_next_token()
             
-def error(er: str) -> int:
-	print("Error in line " + str(line_number) + ": " + errors.get(er))
-	return 1
+    print("\n¡Análisis finalizado! Resultados guardados en 'resultado_tokens.txt'")
 
-tokens ={
-	"(" : 'PAR_ABRE',
-    ")" : 'PAR_CIERRA',
-    "," : 'COMA',
-    "." : 'PUNTO',
-    ";" : 'PUNTO_COMA',
-    ":" : 'DOS_PUNTOS',
-	"{" : 'LLAVE_ABRE',
-	"}" : 'LLAVE_CIERRA',
-	"+" : 'OP_ARIT_ADD',
-	"-" : 'OP_ARIT_SUB',
-	"*" : 'OP_ARIT_MUL',
-	"/" : 'OP_ARIT_DIV',
-	"=" : 'OP_REL_EQUAL',
-	"<>" : 'OP_REL_NOT_EQUAL',
-	"<" : 'OP_REL_LTT',
-	">" : 'OP_REL_GTT',
-	"<=" : 'OP_REL_LTE',
-	">=" : 'OP_REL_GTE',
-	" " : 'IGNORE',
-	"\t" : 'IGNORE',
-	"\n" : 'LINE_BREAK'
-}
+			
 
-keyword = {
-	"program" : 'PROGRAM',
-	"var" : 'VAR',
-	"integer" : 'INTEGER',
-	"boolean" : 'BOOLEAN',
-	"function" : 'FUNCTION',
-	"procedure" : 'PROCEDURE',
-	"begin" : 'BEGIN',
-	"end" : 'END',
-	"if" : 'IF',
-	"then" : 'THEN',
-    "else" : 'ELSE',
-	"while" : 'WHILE',
-	"do" : 'DO',
-	"read" : 'READ',
-	"write" : 'WRITE',
-	"true" : 'TRUE',
-	"false" : 'FALSE',
-	"or" : 'OR',
-	"and" : 'AND',
-	"not" : 'NOT'
-}
+    
 
-letter = {
-	"A" : 'A',
-	"B" : 'B',
-	"C" : 'C',
-	"D" : 'D',
-	"E" : 'E',
-	"F" : 'F',
-	"G" : 'G',
-	"H" : 'H',
-	"I" : 'I',
-	"J" : 'J',
-	"K" : 'K',
-	"L" : 'L',
-	"M" : 'M',
-	"N" : 'N',
-	"O" : 'O',
-	"P" : 'P',
-	"Q" : 'Q',
-	"R" : 'R',
-	"S" : 'S',
-	"T" : 'T',
-	"U" : 'U',
-	"V" : 'V',
-	"W" : 'W',
-	"X" : 'X',
-	"Y" : 'Y',
-	"Z" : 'Z',
-	"a" : 'a',
-	"b" : 'b',
-	"c" : 'c',
-	"d" : 'd',
-	"e" : 'e',
-	"f" : 'f',
-	"g" : 'g',
-	"h" : 'h',
-	"i" : 'i',
-	"j" : 'j',
-	"k" : 'k',
-	"l" : 'l',
-	"m" : 'm',
-	"n" : 'n',
-	"o" : 'o',
-	"p" : 'p',
-	"q" : 'q',
-	"r" : 'r',
-	"s" : 's',
-	"t" : 't',
-	"u" : 'u',
-	"v" : 'v',
-	"w" : 'w',
-	"x" : 'x',
-	"y" : 'y',
-	"z" : 'z'
-}
-digit = {
-	"0" : '0',
-	"1" : '1',
-	"2" : '2',
-	"3" : '3',
-	"4" : '4',
-	"5" : '5',
-	"6" : '6',
-	"7" : '7',
-	"8" : '8',
-	"9" : '9'
-}
 
-tokens.update({letter: 'ID' for letter in letter})
-tokens.update({digit: 'NUM' for digit in digit})
-
-errors = {
-	"ID_ERROR" : "Lexema no reconocido. Se esperaba un ID o un NUM.",
-	"NUM_ERROR" : "Lexema no reconocido. Se esperaba un NUM.",
-	"COMMENT_ERROR" : "Comentario no cerrado. Se esperaba una llave de cierre."
-}
 
 
 
