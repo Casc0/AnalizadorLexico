@@ -1,28 +1,47 @@
+import sys
+
+# Unidad léxica producida por el analizador y consumida por el parser.
 class Token:
-    """Token que le enviaremos al Parser."""
-    def __init__(self, name,  value, line_number):
+    # name: categoría del token. value: atributo (vacío si no aplica). line_number: línea de origen.
+    def __init__(self, name, value, line_number):
         self.name = name
         self.value = value
         self.line_number = line_number
 
+    # Formato de salida: <ID | symbolTable[n]>, <NAME, value> o <NAME>.
+    def __str__(self):
+        if self.name == 'ID':
+            return f'<ID | symbolTable[{self.value}]>'
+        elif self.value != '':
+            return f'<{self.name}, {self.value}>'
+        return f'<{self.name}>'
+
+# Tabla de símbolos: asocia cada lexema a un puntero entero único.
 class SymbolTable:
-	def __init__(self):
-		self.table = {}
+    def __init__(self):
+        self.table = {}
         self.pointer_counter = 1
 
+    # Retorna el puntero existente si el lexema ya fue registrado, o lo agrega y retorna uno nuevo.
     def get_or_add(self, lexeme):
-        self.table[self.pointer_counter] = lexeme
+        for ptr, lex in self.table.items():
+            if lex == lexeme:
+                return ptr
+        ptr = self.pointer_counter
+        self.table[ptr] = lexeme
         self.pointer_counter += 1
-        return self.pointer_counter
+        return ptr
 
-class AnalizadorLexico:
+# Analizador léxico para un subconjunto del lenguaje Pascal.
+class LexiAnalyzer:
+    # Abre el archivo fuente y carga el primer carácter, las palabras reservadas y los mensajes de error.
     def __init__(self, archivo):
         self.file = open(archivo, 'r')
         self.line_number = 1
-        self.char_actual = self.file.read(1) # Leemos el primer carácter al arrancar
-		self.symbol_table = SymbolTable()
+        self.current_char = self.file.read(1)
+        self.symbol_table = SymbolTable()
 
-		self.keywords = {
+        self.keywords = {
             "program": 'PROGRAM', "var": 'VAR', "integer": 'INTEGER',
             "boolean": 'BOOLEAN', "function": 'FUNCTION', "procedure": 'PROCEDURE',
             "begin": 'BEGIN', "end": 'END', "if": 'IF', "then": 'THEN',
@@ -30,48 +49,50 @@ class AnalizadorLexico:
             "write": 'WRITE', "true": 'TRUE', "false": 'FALSE',
             "or": 'OR', "and": 'AND', "not": 'NOT'
         }
-		
-		self.errors = {
-			"COMMENT" : "Comentario no cerrado. Se esperaba una llave de cierre.",
-			"UNRECOGNIZED_CHAR" : "Carácter no reconocido.",
-			"ASIGN" : "Se esperaba un '=' después de ':'.",
-			"NUM_ERROR" : "Número mal formado. No se permiten letras después de dígitos."
-		}
 
-	def next_char(self):
-        """Avanza un carácter en el archivo."""
+        self.errors = {
+            "COMMENT": "Comentario no cerrado. Se esperaba una llave de cierre.",
+            "UNRECOGNIZED_CHAR": "Carácter no reconocido.",
+            "ASIGN": "Se esperaba un '=' después de ':'.",
+            "NUM_ERROR": "Número mal formado. No se permiten letras después de dígitos."
+        }
+
+    # Avanza un carácter en el archivo.
+    def next_char(self):
         self.current_char = self.file.read(1)
-	
-	def get_next_token(self) -> Token:
-		while self.current_char:
-			match self.current_char:
-				case ' ' | '\t':
+
+    # Punto de entrada principal: consume caracteres hasta reconocer y retornar el siguiente token.
+    def get_next_token(self) -> Token:
+        while self.current_char:
+            match self.current_char:
+                case ' ' | '\t':
                     self.next_char()
                     continue
 
-				case '\n':
+                case '\n':
                     self.line_number += 1
                     self.next_char()
                     continue
 
-				case '{':
+                case '{':
                     self.next_char()
-					token = self.recognize_comment()
-					continue 
-                
-				case c if c.isalpha():
+                    self.recognize_comment()
+                    continue
+
+                case c if c.isalpha():
                     return self.recognize_id_or_keyword()
 
-				case c if c.isdigit():
-                	return self.recognize_number()
-				
-				case ':':
+                case c if c.isdigit():
+                    return self.recognize_number()
+
+                case ':':
                     self.next_char()
                     if self.current_char != '=':
-                        return Token('OP_DOS_PUNTOS', '', self.line_number)
+                        return Token('DOS_PUNTOS', '', self.line_number)
+                    self.next_char()
                     return Token('OP_ASIG', '', self.line_number)
 
-				case '<':
+                case '<':
                     self.next_char()
                     if self.current_char == '>':
                         self.next_char()
@@ -88,11 +109,11 @@ class AnalizadorLexico:
                         return Token('OP_REL', 'GE', self.line_number)
                     return Token('OP_REL', 'GT', self.line_number)
 
-				case '=':
+                case '=':
                     self.next_char()
                     return Token('OP_REL', 'EQ', self.line_number)
 
-				case '+':
+                case '+':
                     self.next_char()
                     return Token('OP_ARIT', 'ADD', self.line_number)
 
@@ -104,11 +125,11 @@ class AnalizadorLexico:
                     self.next_char()
                     return Token('OP_ARIT', 'MUL', self.line_number)
 
-				case '/':
+                case '/':
                     self.next_char()
                     return Token('OP_ARIT', 'DIV', self.line_number)
 
-				case '(':
+                case '(':
                     self.next_char()
                     return Token('PAR_ABRE', '', self.line_number)
 
@@ -128,83 +149,72 @@ class AnalizadorLexico:
                     self.next_char()
                     return Token('PUNTO_COMA', '', self.line_number)
 
-				case _:
+                case _:
                     self.print_error(self.errors["UNRECOGNIZED_CHAR"])
-                    self.next_char() # Avanzar para no generar un bucle infinito
-				
-	def recognize_comment(self):
+                    self.next_char()
 
-		while self.current_char and self.current_char != '}':
+    # Consume todos los caracteres hasta la llave de cierre '}', descartando el comentario.
+    def recognize_comment(self):
+        while self.current_char and self.current_char != '}':
             if self.current_char == '\n':
                 self.line_number += 1
             self.next_char()
-						
-		if self.current_char:
+
+        if self.current_char:
             self.next_char()
-            return 1
         else:
             self.print_error(self.errors["COMMENT"])
-            return 0
 
-	def recognize_id_or_keyword(self) -> Token:
-		lexeme = ""
-		while self.current_char and self.current_char.isalnum():
+    # Reconoce un identificador o palabra reservada; retorna el token correspondiente.
+    def recognize_id_or_keyword(self) -> Token:
+        lexeme = ""
+        while self.current_char and self.current_char.isalnum():
             lexeme += self.current_char
             self.next_char()
 
-		lexeme = lexeme.lower()
+        lexeme = lexeme.lower()
 
-		name = self.keywords.get(lexeme, 'ID')
-		if name == 'ID':
-			return Token(name, self.symbol_table.get_or_add(lexeme), self.line_number)
-		else:
-			return Token(name, "", self.line_number)
-			
-	def recognize_number(self) -> Token:
-		lexema = ""
+        name = self.keywords.get(lexeme, 'ID')
+        if name == 'ID':
+            return Token(name, self.symbol_table.get_or_add(lexeme), self.line_number)
+        return Token(name, '', self.line_number)
+
+    # Reconoce un literal entero; reporta error y retorna None si le siguen letras al número.
+    def recognize_number(self) -> Token:
+        lexeme = ""
         while self.current_char and self.current_char.isdigit():
-            lexema += self.current_char
+            lexeme += self.current_char
             self.next_char()
 
-        # Si hay dígitos mezclados con letras, es un error de número mal formado
-		if self.current_char and self.current_char.isalpha():
-			self.print_error(self.errors["NUM_ERROR"])
+        if self.current_char and self.current_char.isalpha():
+            self.print_error(self.errors["NUM_ERROR"])
             while self.current_char and self.current_char.isalnum():
                 self.next_char()
-                return 0
-        return Token('NUM', lexema, self.line_number)
+            return None
 
-	def print_error(self, msg):
+        return Token('NUM', lexeme, self.line_number)
+
+    # Imprime un error léxico indicando la línea donde ocurrió.
+    def print_error(self, msg):
         print(f"Error Léxico en línea {self.line_number}: {msg}")
+
 
 if __name__ == "__main__":
     if len(sys.argv) != 2:
         print("Faltan argumentos.")
         sys.exit(1)
-        
+
     input_file = sys.argv[1]
-    lex = LexicAnalyzer(input_file)
-    
+    lex = LexiAnalyzer(input_file)
+
     with open("resultado_tokens.txt", "w") as output_file:
         token = lex.get_next_token()
-        line = token.line_number
+        line = token.line_number if token else 1
         while token:
-            
             if token.line_number != line:
                 output_file.write("\n")
-
             output_file.write(str(token) + " ")
-            token = lex.get_next_token()
             line = token.line_number
-            
+            token = lex.get_next_token()
+
     print("\n¡Análisis finalizado! Resultados guardados en 'resultado_tokens.txt'")
-
-			
-
-    
-
-
-
-
-
-
