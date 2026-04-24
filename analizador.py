@@ -32,6 +32,14 @@ class SymbolTable:
         self.pointer_counter += 1
         return ptr
 
+    # Escribe la tabla de símbolos al archivo de salida, ordenada por puntero.
+    def print_symbol_table(self, output_file):
+        output_file.write("\n\n=== Tabla de Símbolos ===\n")
+        output_file.write(f"{'Puntero':<10} Lexema\n")
+        output_file.write("-" * 25 + "\n")
+        for ptr in sorted(self.table):
+            output_file.write(f"{ptr:<10} {self.table[ptr]}\n")
+
 # Analizador léxico para un subconjunto del lenguaje Pascal.
 class LexiAnalyzer:
     # Abre el archivo fuente y carga el primer carácter, las palabras reservadas y los mensajes de error.
@@ -190,7 +198,7 @@ class LexiAnalyzer:
             self.print_error(self.errors["NUM_ERROR"])
             while self.current_char and self.current_char.isalnum():
                 self.next_char()
-            return None
+            return self.get_next_token()
 
         return Token('NUM', lexeme, self.line_number)
 
@@ -216,5 +224,6 @@ if __name__ == "__main__":
             output_file.write(str(token) + " ")
             line = token.line_number
             token = lex.get_next_token()
+        lex.symbol_table.print_symbol_table(output_file)
 
     print("\n¡Análisis finalizado! Resultados guardados en 'resultado_tokens.txt'")
