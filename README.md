@@ -100,5 +100,5 @@ cat resultado_tokens.txt
 
 ## Autores
 
-- Franco Fabris — FAI-3206 — franco.fabris@est.fi.uncoma.edu.ar
-- Valentina Villarroel — FAI-3944 — valentina.villarroel@est.fi.uncoma.edu.ar
+- Franco Fabris — franco.fabris@est.fi.uncoma.edu.ar
+- Valentina Villarroel — valentina.villarroel@est.fi.uncoma.edu.ar
