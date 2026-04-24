@@ -11,10 +11,9 @@ class SymbolTable:
         self.pointer_counter = 1
 
     def get_or_add(self, lexeme):
-        if lexeme not in self.table:
-            self.table[lexeme] = self.pointer_counter
-            self.pointer_counter += 1
-        return self.table[lexeme]
+        self.table[self.pointer_counter] = lexeme
+        self.pointer_counter += 1
+        return self.pointer_counter
 
 class AnalizadorLexico:
     def __init__(self, archivo):
@@ -58,8 +57,6 @@ class AnalizadorLexico:
 				case '{':
                     self.next_char()
 					token = self.recognize_comment()
-					if token:
-						return token
 					continue 
                 
 				case c if c.isalpha():
@@ -71,11 +68,8 @@ class AnalizadorLexico:
 				case ':':
                     self.next_char()
                     if self.current_char != '=':
-                        self.next_char()
-                        return Token('OP_ASIG', ':=', self.line_number)
-                    # Si no es ':=', es un error, corregimos el error y seguimos adelante    
-                    print_error(self.errors["ASIGN"])
-                    return Token('OP_ASIG', ':=', self.line_number)
+                        return Token('OP_DOS_PUNTOS', '', self.line_number)
+                    return Token('OP_ASIG', '', self.line_number)
 
 				case '<':
                     self.next_char()
@@ -139,20 +133,20 @@ class AnalizadorLexico:
                     self.next_char() # Avanzar para no generar un bucle infinito
 				
 	def recognize_comment(self):
+
 		while self.current_char and self.current_char != '}':
             if self.current_char == '\n':
                 self.line_number += 1
             self.next_char()
 						
-		if self.current_char == '}':
+		if self.current_char:
             self.next_char()
             return 1
         else:
             self.print_error(self.errors["COMMENT"])
             return 0
 
-
-	def recognize_id_or_keyword(self) -> int:
+	def recognize_id_or_keyword(self) -> Token:
 		lexeme = ""
 		while self.current_char and self.current_char.isalnum():
             lexeme += self.current_char
@@ -166,8 +160,7 @@ class AnalizadorLexico:
 		else:
 			return Token(name, "", self.line_number)
 			
-
-	def recognize_number(self) -> int:
+	def recognize_number(self) -> Token:
 		lexema = ""
         while self.current_char and self.current_char.isdigit():
             lexema += self.current_char
@@ -177,9 +170,8 @@ class AnalizadorLexico:
 		if self.current_char and self.current_char.isalpha():
 			self.print_error(self.errors["NUM_ERROR"])
             while self.current_char and self.current_char.isalnum():
-                lexema += self.current_char
                 self.next_char()
-                return Token('ERROR', lexema, self.line_number)
+                return 0
         return Token('NUM', lexema, self.line_number)
 
 	def print_error(self, msg):
